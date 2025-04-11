@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Cosmic yt-dlp applet
+Exec=cosmic-ext-applet-yt-dlp %F
+Terminal=false
+Type=Application
+StartupNotify=true
+Icon=multimedia-video-player-symbolic
+Categories=COSMIC;
+Keywords=COSMIC
+MimeType=
+NoDisplay=true
+X-CosmicApplet=true
+X-CosmicHoverPopup=Auto
