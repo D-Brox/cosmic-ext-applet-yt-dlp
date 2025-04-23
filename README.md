@@ -4,20 +4,34 @@ A simple yt-dlp GUI for the COSMIC DE
 
 ![screenshot.png](./res/screenshot.png)
 
-## Installation 
+## Installing
 
-Clone the repository:
+You can just grab the `.deb`, `.rpm` or tarball from the [releases](https://github.com/D-Brox/cosmic-ext-applet-yt-dlp/releases/latest) page.
+
+
+## Building from source
+
+Clone the repository
 
 ```bash
 git clone https://github.com/D-Brox/cosmic-ext-applet-yt-dlp cosmic-ext-applet-yt-dlp
 cd cosmic-ext-applet-yt-dlp
 ```
 
+Install the build dependencies (or equivalent packages in non debian-based distros):
+
+- rustc/cargo
+- just
+- libxkbcommon-dev
+
+
 Build and install the project:
 
 ```bash
 just build-release
-sudo just install
+sudo just install 
+# or
+just install-local
 ```
 
 For alternative packaging methods, use the one of the following recipes:
