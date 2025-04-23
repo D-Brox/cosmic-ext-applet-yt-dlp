@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use ashpd::desktop::file_chooser::SelectedFiles;
 use cosmic::app::{Core, Task};
 use cosmic::applet::padded_control;
 use cosmic::cosmic_theme::Spacing;
@@ -14,11 +13,12 @@ use cosmic::widget::segmented_button::{Entity, SingleSelectModel};
 use cosmic::widget::text::body;
 use cosmic::widget::{divider, segmented_control, text_input};
 use cosmic::{Action, Application, Apply, Element};
-use yt_dlp::fetcher::deps::Libraries;
-use yt_dlp::Youtube;
 
-use crate::fl;
-use crate::ytdlp::{AudioCodec, AudioQuality, VideoCodec, VideoQuality};
+use ashpd::desktop::file_chooser::SelectedFiles;
+use notify_rust::Notification;
+
+use crate::formats::{AudioCodec, AudioQuality, VideoCodec, VideoQuality};
+use crate::{fetcher, fl, fl_str};
 
 #[derive(Default)]
 pub struct Ytdlp {
@@ -122,9 +122,7 @@ impl Application for Ytdlp {
         let video_selected = self.video_entity == self.download_type.active();
         let pad = self.core.applet.suggested_padding(true);
         let Spacing {
-            space_xxs,
-            space_s,
-            ..
+            space_xxs, space_s, ..
         } = cosmic::theme::active().cosmic().spacing;
 
         let content_list = column![
@@ -160,7 +158,7 @@ impl Application for Ytdlp {
             .on_focus(Message::SelectFolder)
             .on_input(Message::ProcessSelectFolder)
             .apply(padded_control),
-            padded_control(divider::horizontal::default()).padding([space_xxs,space_s]),
+            padded_control(divider::horizontal::default()).padding([space_xxs, space_s]),
             row![
                 body(fl!("downloading", total = self.downloading)).width(Length::Fill),
                 button(body(fl!("download"))).on_press(Message::Download),
@@ -169,16 +167,12 @@ impl Application for Ytdlp {
             .spacing(pad)
             .apply(padded_control)
         ]
-        .padding(pad)
-        .height(Length::Fill);
+        .padding(pad);
 
-        self.core
-            .applet
-            .popup_container(content_list)
-            .max_height(450.0 + (4*space_xxs) as f32)
-            .into()
+        self.core.applet.popup_container(content_list).into()
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
         match message {
             Message::TogglePopup => {
@@ -200,7 +194,7 @@ impl Application for Ytdlp {
                         .min_height(200.0)
                         .max_height(1000.0);
                     get_popup(popup_settings)
-                }
+                };
             }
             Message::PopupClosed(id) => {
                 if self.popup.as_ref() == Some(&id) {
@@ -247,47 +241,82 @@ impl Application for Ytdlp {
             Message::Download => {
                 self.downloading += 1;
                 let video_selected = self.video_entity == self.download_type.active();
-                let youtube = self.lib_dir.join("yt-dlp");
-                let ffmpeg = self.lib_dir.join("ffmpeg");
+
                 let url = self.url.clone();
+                let lib_dir = self.lib_dir.clone();
                 self.url.clear();
-                let folder = if video_selected {
-                    self.video_folder.clone()
+                let output_dir = PathBuf::from(if video_selected {
+                    &self.video_folder
                 } else {
-                    self.audio_folder.clone()
-                };
-                let video_quality = self.video_quality;
-                let video_codec = self.video_codec;
-                let audio_quality = self.audio_quality;
-                let audio_codec = self.audio_codec;
+                    &self.audio_folder
+                });
+                let video_quality = self.video_quality.into();
+                let video_codec = self.video_codec.into();
+                let audio_quality = self.audio_quality.into();
+                let audio_codec = self.audio_codec.into();
                 return Task::future(async move {
-                    let libs = Libraries::new(youtube, ffmpeg);
-                    let fetcher = Youtube::new(libs, PathBuf::from(folder))
-                        .expect("Failed to init yt-dlp wrapper");
-                    _ = if video_selected {
-                        fetcher
-                            .download_video_with_quality(
-                                url,
-                                format!(
-                                    "ytdlp_{}.mp4",
-                                    chrono::Local::now().format("%Y%m%d_%H%M%S")
-                                ),
-                                video_quality.into(),
-                                video_codec.into(),
-                                audio_quality.into(),
-                                audio_codec.into(),
-                            )
-                            .await
-                    } else {
-                        fetcher
-                            .download_audio_stream_with_quality(
-                                url,
-                                "ytdlp_{}.mp3",
-                                audio_quality.into(),
-                                audio_codec.into(),
-                            )
-                            .await
+                    let mut notify = Notification::new()
+                        .appname("yt-dlp applet")
+                        .icon("multimedia-video-player-symbolic")
+                        .finalize();
+
+                    let fetcher = fetcher::with_output_dir(&lib_dir, output_dir);
+                    let res = fetcher.fetch_video_infos(url.clone()).await;
+                    let Ok(video) = res else {
+                        let _ = notify
+                            .summary(fl_str!("metadata-failed"))
+                            .show_async()
+                            .await;
+                        return Action::App(Message::Finished);
                     };
+                    let title = video.filename.rsplit_once('.').unwrap().0.to_string();
+
+                    let (Some(format), extension) = (if video_selected {
+                        (video.select_video_format(video_quality, video_codec), "mp4")
+                    } else {
+                        (
+                            video.select_audio_format(audio_quality, audio_codec),
+                            ".m4a",
+                        )
+                    }) else {
+                        let _ = notify.summary(fl_str!("missing-format")).show_async().await;
+                        return Action::App(Message::Finished);
+                    };
+                    let download_failed = {
+                        let title = title.clone();
+                        async || {
+                            let _ = notify
+                                .summary(fl_str!("download-failed", title = title))
+                                .show_async()
+                                .await;
+                            Action::App(Message::Finished)
+                        }
+                    };
+
+                    if format.is_manifest() {
+                        if !fetcher::manifest(
+                            url,
+                            fetcher.output_dir,
+                            fetcher.libraries.ffmpeg,
+                            &title,
+                            video_selected,
+                        )
+                        .await
+                        {
+                            return download_failed().await;
+                        }
+                    } else if fetcher
+                        .download_format(format, format!("{title}.{extension}"))
+                        .await
+                        .is_err()
+                    {
+                        return download_failed().await;
+                    }
+
+                    let _ = notify
+                        .summary(fl_str!("finished-download", title = title))
+                        .show_async()
+                        .await;
                     Action::App(Message::Finished)
                 });
             }
@@ -305,7 +334,7 @@ impl Ytdlp {
     fn view_video(&self) -> Element<Message> {
         column![
             row![
-                body(fl!("video-quality")).width(Length::Fill),
+                body(fl!("video-quality")).width(Length::FillPortion(1)),
                 pick_list(
                     vec![
                         VideoQuality::Highest,
@@ -316,11 +345,12 @@ impl Ytdlp {
                     ],
                     Some(self.video_quality),
                     Message::VideoQuality
-                ),
+                )
+                .width(Length::FillPortion(1)),
             ]
             .apply(padded_control),
             row![
-                body(fl!("video-codec")).width(Length::Fill),
+                body(fl!("video-codec")).width(Length::FillPortion(1)),
                 pick_list(
                     vec![
                         VideoCodec::AV1,
@@ -330,10 +360,10 @@ impl Ytdlp {
                     ],
                     Some(self.video_codec),
                     Message::VideoCodec
-                ),
+                )
+                .width(Length::FillPortion(1)),
             ]
             .apply(padded_control),
-            self.view_audio(),
         ]
         .into()
     }
@@ -341,7 +371,7 @@ impl Ytdlp {
     fn view_audio(&self) -> Element<Message> {
         column![
             row![
-                body(fl!("audio-quality")).width(Length::Fill),
+                body(fl!("audio-quality")).width(Length::FillPortion(1)),
                 pick_list(
                     vec![
                         AudioQuality::Best,
@@ -352,11 +382,12 @@ impl Ytdlp {
                     ],
                     Some(self.audio_quality),
                     Message::AudioQuality
-                ),
+                )
+                .width(Length::FillPortion(1)),
             ]
             .apply(padded_control),
             row![
-                body(fl!("audio-codec")).width(Length::Fill),
+                body(fl!("audio-codec")).width(Length::FillPortion(1)),
                 pick_list(
                     vec![
                         AudioCodec::Opus,
@@ -366,11 +397,11 @@ impl Ytdlp {
                     ],
                     Some(self.audio_codec),
                     Message::AudioCodec
-                ),
+                )
+                .width(Length::FillPortion(1)),
             ]
             .apply(padded_control),
         ]
-        .height(Length::Fill)
         .into()
     }
 }

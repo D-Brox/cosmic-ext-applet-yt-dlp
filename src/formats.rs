@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum VideoQuality {
     #[default]
@@ -7,7 +8,7 @@ pub enum VideoQuality {
     FHD,
     HD,
     SD,
-    Lowest
+    Lowest,
 }
 
 impl Display for VideoQuality {
@@ -22,9 +23,9 @@ impl Display for VideoQuality {
     }
 }
 
-impl Into<yt_dlp::model::VideoQuality> for VideoQuality {
-    fn into(self) -> yt_dlp::model::VideoQuality {
-        match self {
+impl From<VideoQuality> for yt_dlp::model::VideoQuality {
+    fn from(val: VideoQuality) -> Self {
+        match val {
             VideoQuality::Highest => yt_dlp::model::VideoQuality::Best,
             VideoQuality::FHD => yt_dlp::model::VideoQuality::High,
             VideoQuality::HD => yt_dlp::model::VideoQuality::Medium,
@@ -33,7 +34,6 @@ impl Into<yt_dlp::model::VideoQuality> for VideoQuality {
         }
     }
 }
-
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum VideoCodec {
@@ -47,17 +47,17 @@ pub enum VideoCodec {
 impl Display for VideoCodec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VideoCodec::AV1 => write!(f,"AV1"),
-            VideoCodec::AVC1 => write!(f,"AVC1"),
-            VideoCodec::VP9 => write!(f,"VP9"),
-            VideoCodec::Any => write!(f,"Any"),
+            VideoCodec::AV1 => write!(f, "AV1"),
+            VideoCodec::AVC1 => write!(f, "AVC1"),
+            VideoCodec::VP9 => write!(f, "VP9"),
+            VideoCodec::Any => write!(f, "Any"),
         }
     }
 }
 
-impl Into<yt_dlp::model::VideoCodecPreference> for VideoCodec {
-    fn into(self) -> yt_dlp::model::VideoCodecPreference {
-        match self {
+impl From<VideoCodec> for yt_dlp::model::VideoCodecPreference {
+    fn from(val: VideoCodec) -> Self {
+        match val {
             VideoCodec::AV1 => yt_dlp::model::VideoCodecPreference::AV1,
             VideoCodec::AVC1 => yt_dlp::model::VideoCodecPreference::AVC1,
             VideoCodec::VP9 => yt_dlp::model::VideoCodecPreference::VP9,
@@ -66,7 +66,6 @@ impl Into<yt_dlp::model::VideoCodecPreference> for VideoCodec {
     }
 }
 
-
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum AudioQuality {
     #[default]
@@ -74,7 +73,7 @@ pub enum AudioQuality {
     High,
     Medium,
     Low,
-    Worst
+    Worst,
 }
 
 impl Display for AudioQuality {
@@ -89,9 +88,9 @@ impl Display for AudioQuality {
     }
 }
 
-impl Into<yt_dlp::model::AudioQuality> for AudioQuality {
-    fn into(self) -> yt_dlp::model::AudioQuality {
-        match self {
+impl From<AudioQuality> for yt_dlp::model::AudioQuality {
+    fn from(val: AudioQuality) -> Self {
+        match val {
             AudioQuality::Best => yt_dlp::model::AudioQuality::Best,
             AudioQuality::High => yt_dlp::model::AudioQuality::High,
             AudioQuality::Medium => yt_dlp::model::AudioQuality::Medium,
@@ -101,7 +100,7 @@ impl Into<yt_dlp::model::AudioQuality> for AudioQuality {
     }
 }
 
-
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum AudioCodec {
     Opus,
@@ -114,17 +113,17 @@ pub enum AudioCodec {
 impl Display for AudioCodec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AudioCodec::Opus => write!(f,"Opus"),
-            AudioCodec::ACC => write!(f,"ACC"),
-            AudioCodec::MP3 => write!(f,"MP3"),
-            AudioCodec::Any => write!(f,"Any"),
+            AudioCodec::Opus => write!(f, "Opus"),
+            AudioCodec::ACC => write!(f, "ACC"),
+            AudioCodec::MP3 => write!(f, "MP3"),
+            AudioCodec::Any => write!(f, "Any"),
         }
     }
 }
 
-impl Into<yt_dlp::model::AudioCodecPreference> for AudioCodec {
-    fn into(self) -> yt_dlp::model::AudioCodecPreference {
-        match self {
+impl From<AudioCodec> for yt_dlp::model::AudioCodecPreference {
+    fn from(val: AudioCodec) -> Self {
+        match val {
             AudioCodec::Opus => yt_dlp::model::AudioCodecPreference::Opus,
             AudioCodec::ACC => yt_dlp::model::AudioCodecPreference::AAC,
             AudioCodec::MP3 => yt_dlp::model::AudioCodecPreference::MP3,

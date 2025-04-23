@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Provides localization support for this crate.
-use std::sync::LazyLock;
 use i18n_embed::{
-    fluent::{fluent_language_loader, FluentLanguageLoader},
-    unic_langid::LanguageIdentifier,
     DefaultLocalizer, LanguageLoader, Localizer,
+    fluent::{FluentLanguageLoader, fluent_language_loader},
+    unic_langid::LanguageIdentifier,
 };
 use rust_embed::RustEmbed;
+use std::sync::LazyLock;
 
 /// Applies the requested language(s) to requested translations from the `fl!()` macro.
 pub fn init(requested_languages: &[LanguageIdentifier]) {
-    if let Err(why) = localizer().select(&requested_languages) {
+    if let Err(why) = localizer().select(requested_languages) {
         eprintln!("error while loading fluent localizations: {why}");
     }
 }
@@ -46,4 +46,11 @@ macro_rules! fl {
     ($message_id:literal, $($args:expr),*) => {{
         i18n_embed_fl::fl!($crate::i18n::LANGUAGE_LOADER, $message_id, $($args), *)
    }};
+}
+
+#[macro_export]
+macro_rules! fl_str {
+    ($($args:expr),*) => {
+        fl!($($args), *).as_str()
+    }
 }
